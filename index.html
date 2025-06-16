@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Stats Roblox Live 2025</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6 min-h-screen">
+  <div class="max-w-5xl mx-auto space-y-8">
+    <h1 class="text-4xl font-bold text-center">📊 Statistiques Roblox Live</h1>
+
+    <div class="bg-gray-800 p-4 rounded-xl flex items-center justify-between">
+      <div class="flex space-x-4 items-center">
+        <label>Mois :
+          <input type="month" id="monthPicker" class="bg-gray-700 p-2 rounded text-white"/>
+        </label>
+        <button onclick="updateChartDAU()" class="bg-green-600 p-2 rounded hover:bg-green-700">Afficher DAU</button>
+      </div>
+      <div id="lastUpdated" class="text-gray-400"></div>
+    </div>
+
+    <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6"></div>
+
+    <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+      <h2 class="text-2xl font-bold mb-4">📈 DAU par jour (sélectionné)</h2>
+      <canvas id="dailyChart" class="w-full h-64"></canvas>
+    </div>
+
+    <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+      <h2 class="text-2xl font-bold mb-4">🟢 Joueurs connectés aujourd’hui (en direct)</h2>
+      <canvas id="liveChart" class="w-full h-64"></canvas>
+    </div>
+
+  </div>
+
+  <script>
+    const ctxDAU = document.getElementById('dailyChart').getContext('2d');
+    let dailyChart;
+
+    const ctxLive = document.getElementById('liveChart').getContext('2d');
+    let liveChart;
+
+    function formatNumber(n) { return n.toLocaleString('fr-FR'); }
+
+    async function fetchGlobalStats() {
+      return {
+        dailyActive: 85_300_000,
+        monthlyActive: 380_000_000,
+        gamesCount: 40_000_000,
+        recordConcurrent: 35_000_000
+      };
+    }
+
+    async function fetchConcurrentPlayers() {
+      // Simulation du nombre actuel de joueurs connectés Roblox
+      const base = 25_000_000;
+      const variance = 2_000_000;
+      return base + Math.floor((Math.random() - 0.5) * variance);
+    }
+
+    async function fetchTopGame() {
+      return { name: "Grow a Garden", players: 16_411_769 };
+    }
+
+    async function fetchDAUforMonth(year, month) {
+      const days = new Date(year, month, 0).getDate();
+      return Array.from({length: days}, () =>
+        80_000_000 + Math.floor(Math.random() * 7_000_000)
+      );
+    }
+
+    async function renderStats() {
+      const s = await fetchGlobalStats();
+      s.concurrent = await fetchConcurrentPlayers();
+
+      const topGame = await fetchTopGame();
+      const items = [
+        ["👥 DAU", s.dailyActive, "green-400"],
+        ["📅 MAU", s.monthlyActive, "blue-400"],
+        ["🎮 Jeux créés", s.gamesCount, "purple-400"],
+        ["🟢 Joueurs connectés rn", formatNumber(s.concurrent), "yellow-400"],
+        ["🏆 Top jeu rn", `${topGame.name} (${formatNumber(topGame.players)})`, "pink-400"],
+        ["🔥 Record joueurs simultanés", formatNumber(s.recordConcurrent), "red-500"]
+      ];
+      document.getElementById('statsGrid').innerHTML = items.map(([l,v,c]) => `
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
+          <h2 class="text-xl font-semibold">${l}</h2>
+          <p class="text-3xl font-bold text-${c} break-words max-w-full overflow-hidden">${v}</p>
+        </div>`).join("");
+    }
+
+    async function updateChartDAU() {
+      const val = document.getElementById('monthPicker').value;
+      if (!val) return;
+      const [year, month] = val.split("-");
+      const data = await fetchDAUforMonth(Number(year), Number(month));
+      const labels = data.map((_, i) => i + 1);
+      if (dailyChart) dailyChart.destroy();
+      dailyChart = new Chart(ctxDAU, {
+        type: 'line',
+        data: { labels, datasets: [{
+          label: `DAU ${year}-${month}`,
+          data,
+          fill: true,
+          borderColor: '#4ade80',
+          backgroundColor: 'rgba(74,222,128,0.1)',
+          tension: 0.3
+        }]},
+        options: {
+          scales: {
+            x: { ticks: { color: 'white' }, grid: { color: '#333' }},
+            y: { ticks: { color: 'white' }, grid: { color: '#333' }}
+          },
+          plugins: { legend: { labels: { color: 'white' }}, tooltip: { mode: 'index', intersect: false } }
+        }
+      });
+    }
+
+    const timeStepMinutes = 10;
+    let liveLabels = [];
+    let liveData = [];
+
+    function generateLiveLabels() {
+      const now = new Date();
+      const labels = [];
+      for (let h = 0; h <= now.getHours(); h++) {
+        const maxMinute = (h === now.getHours()) ? now.getMinutes() : 59;
+        for (let m = 0; m <= maxMinute; m += timeStepMinutes) {
+          labels.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+        }
+      }
+      return labels;
+    }
+
+    function generateLiveData(labels) {
+      const base = 25_000_000;
+      const variance = 2_000_000;
+      return labels.map(() => base + Math.floor((Math.random() - 0.5) * variance));
+    }
+
+    function updateLastLiveData() {
+      const base = 25_000_000;
+      const variance = 2_000_000;
+      liveData[liveData.length - 1] = base + Math.floor((Math.random() - 0.5) * variance);
+    }
+
+    function drawLiveChart() {
+      if (liveChart) liveChart.destroy();
+      liveChart = new Chart(ctxLive, {
+        type: 'line',
+        data: {
+          labels: liveLabels,
+          datasets: [{
+            label: 'Joueurs connectés aujourd’hui',
+            data: liveData,
+            borderColor: '#facc15',
+            fill: true,
+            backgroundColor: 'rgba(250,204,21,0.2)',
+            tension: 0.3,
+          }]
+        },
+        options: {
+          scales: {
+            x: { ticks: { color: 'white' }, grid: { color: '#333' }},
+            y: { ticks: { color: 'white' }, grid: { color: '#333' }}
+          },
+          plugins: { legend: { labels: { color: 'white' }}, tooltip: { mode: 'index', intersect: false } }
+        }
+      });
+    }
+
+    function updateLiveChart() {
+      updateLastLiveData();
+      liveChart.data.datasets[0].data = liveData;
+      liveChart.update();
+    }
+
+    async function updateAll() {
+      await renderStats();
+      await updateChartDAU();
+
+      liveLabels = generateLiveLabels();
+      liveData = generateLiveData(liveLabels);
+      drawLiveChart();
+
+      document.getElementById('lastUpdated').textContent =
+        `Dernière mise à jour : ${new Date().toLocaleTimeString('fr-FR')}`;
+    }
+
+    window.onload = () => {
+      const now = new Date();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const y = now.getFullYear();
+      document.getElementById('monthPicker').value = `${y}-${m}`;
+
+      updateAll();
+
+      setInterval(() => {
+        renderStats();
+        updateChartDAU();
+        updateLiveChart();
+
+        document.getElementById('lastUpdated').textContent =
+          `Dernière mise à jour : ${new Date().toLocaleTimeString('fr-FR')}`;
+      }, 10_000);
+    };
+  </script>
+</body>
+</html>
